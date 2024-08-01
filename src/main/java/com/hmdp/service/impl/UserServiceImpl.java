@@ -57,7 +57,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         if (user == null) {
             user = createUserByPhone(phone);
         }
-        session.setAttribute("user", user);
+        UserDTO userDTO = new UserDTO(user.getId(), user.getNickName(), user.getIcon());
+        session.setAttribute("user", userDTO);
         return Result.ok();
     }
 
