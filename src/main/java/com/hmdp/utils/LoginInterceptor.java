@@ -1,7 +1,6 @@
 package com.hmdp.utils;
 
-import com.hmdp.entity.User;
-import lombok.val;
+import com.hmdp.dto.UserDTO;
 import org.springframework.web.servlet.HandlerInterceptor;
 
 import javax.servlet.http.HttpServletRequest;
@@ -14,14 +13,14 @@ public class LoginInterceptor implements HandlerInterceptor {
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
         // 获取session中的用户信息
         HttpSession session = request.getSession();
-        Object user = session.getAttribute("use");
+        Object user = session.getAttribute("user");
         // 如果用户不存在就拦截，发送401错误码
         if (user == null) {
             response.setStatus(401);
             return false;
         }
         // 如果用户存在则保存在本地，表示已登录状态
-        UserHolder.saveUser((User) user);
+        UserHolder.saveUser((UserDTO) user);
         return true;
     }
 
