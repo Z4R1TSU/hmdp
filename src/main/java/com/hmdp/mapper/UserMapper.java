@@ -1,6 +1,7 @@
 package com.hmdp.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.github.yulichang.base.MPJBaseMapper;
 import com.hmdp.entity.User;
 
 /**
@@ -11,6 +12,6 @@ import com.hmdp.entity.User;
  * @author 虎哥
  * @since 2021-12-22
  */
-public interface UserMapper extends BaseMapper<User> {
+public interface UserMapper extends MPJBaseMapper<User> {
 
 }
