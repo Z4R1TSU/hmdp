@@ -70,10 +70,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         if (user == null) {
             user = createUserByPhone(phone);
         }
-        UserDTO userDTO = new UserDTO(user.getId(), user.getNickName(), user.getIcon());
+        String token = UUID.randomUUID().toString(true);
+        UserDTO userDTO = new UserDTO(user.getId(), user.getNickName(), user.getIcon(), token);
 //        session.setAttribute("user", userDTO);
         // 这里将toString设为true是因为redis的value只能是字符串，所以这里将userDTO转为json字符串存入redis
-        String token = UUID.randomUUID().toString(true);
         String tokenKey = RedisConstants.LOGIN_USER_KEY + token;
         Map<String, Object> userDTOMap = BeanUtil.beanToMap(userDTO);
         // 将DTO转化成的map的id字段从long转到string，使其符合redis的string键值对规范
@@ -86,7 +86,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
     @Override
     public Result logout() {
 //        UserDTO userDTO = UserHolder.getUser();
+//        将UserHolder记录的在线登录状态的用户去掉
+        String token = UserHolder.getUser().getToken();
         UserHolder.removeUser();
+//        再去掉redis当中存储的信息
+        stringRedisTemplate.delete(RedisConstants.LOGIN_USER_KEY + token);
         return Result.ok();
     }
 
