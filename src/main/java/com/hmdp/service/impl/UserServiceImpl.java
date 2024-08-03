@@ -61,9 +61,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
             return Result.fail("手机号格式错误");
         }
         String code = loginForm.getCode();
-//        Object sessionCode = session.getAttribute("code");
+//        Object sessionCode = session.getAttribute("   code");
         String redisCode = stringRedisTemplate.opsForValue().get(RedisConstants.LOGIN_CODE_KEY + phone);
-        if (redisCode == null || (RedisConstants.LOGIN_CODE_KEY + code).compareTo(redisCode) != 0) {
+        if (redisCode == null || code.compareTo(redisCode) != 0) {
             return Result.fail("验证码错误");
         }
         User user = userMapper.selectOne(new LambdaQueryWrapper<User>().eq(User::getPhone, phone));
