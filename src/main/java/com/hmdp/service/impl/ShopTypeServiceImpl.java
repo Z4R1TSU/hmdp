@@ -1,6 +1,5 @@
 package com.hmdp.service.impl;
 
-import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.hmdp.dto.Result;
 import com.hmdp.entity.ShopType;
@@ -11,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
+import javax.annotation.Resource;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -26,14 +26,17 @@ import java.util.concurrent.TimeUnit;
 @Service
 public class ShopTypeServiceImpl extends ServiceImpl<ShopTypeMapper, ShopType> implements IShopTypeService {
 
+    @Resource
     private RedisTemplate<String, ShopType> redisTemplate;
 
     @Override
     public Result queryTypeList() {
         String key = RedisConstants.CACHE_SHOP_KEY;
-        List<ShopType> shopTypeCacheList = redisTemplate.opsForList().range(key, 0, -1);
-        if (shopTypeCacheList != null && !shopTypeCacheList.isEmpty()) {
-            return Result.ok(shopTypeCacheList);
+        if (redisTemplate != null && redisTemplate.hasKey(key)) {
+            List<ShopType> shopTypeCacheList = redisTemplate.opsForList().range(key, 0, -1);
+            if (shopTypeCacheList != null && !shopTypeCacheList.isEmpty()) {
+                return Result.ok(shopTypeCacheList);
+            }
         }
         List<ShopType> shopTypeList = query().orderByAsc("sort").list();
         if (shopTypeList == null || shopTypeList.isEmpty()) {
