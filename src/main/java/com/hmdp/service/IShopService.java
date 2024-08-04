@@ -14,10 +14,8 @@ import com.hmdp.entity.Shop;
  */
 public interface IShopService extends IService<Shop> {
 
-    Result queryById(Long id);
+    Result queryById(Long id) throws InterruptedException;
 
     Result updateShop(Shop shop);
-
-    boolean tryLock(String key);
 
 }

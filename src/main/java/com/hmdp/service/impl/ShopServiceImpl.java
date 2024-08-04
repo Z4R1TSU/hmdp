@@ -30,25 +30,49 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
     private StringRedisTemplate stringRedisTemplate;
 
     @Override
-    public Result queryById(Long id) {
+    public Result queryById(Long id) throws InterruptedException {
+        Shop shop = queryByIdMutex(id);
+        if (shop == null) {
+            return Result.fail("找不到指定店铺");
+        }
+        return Result.ok(shop);
+    }
+
+    private Shop queryByIdMutex(Long id) throws InterruptedException {
         String key = RedisConstants.CACHE_SHOP_KEY + id;
         String shopJson = stringRedisTemplate.opsForValue().get(key);
         if (StrUtil.isNotBlank(shopJson)) {
-            Shop shop = JSONUtil.toBean(shopJson, Shop.class);
-            return Result.ok(shop);
+            return JSONUtil.toBean(shopJson, Shop.class);
         }
         if (shopJson != null) {
             // shopJson不为null，说明它一定为空字符串，说明它有被穿透的风险，所以直接报错
-            return Result.fail("店铺不存在");
+            return null;
         }
-        Shop shop = getById(id);
-        if (shop == null) {
-            // 防止缓存穿透，将数据库值为null的key以空值value记录在redis中
-            stringRedisTemplate.opsForValue().set(key, "", RedisConstants.CACHE_NULL_TTL, TimeUnit.MINUTES);
-            return Result.fail("店铺不存在");
+        // 尝试申请锁
+        Shop shop = null;
+        try {
+            boolean requireLock = requireLock(key);
+            // 若申请不到，则睡眠后重新申请(这个很朴素性能很差，我不知道在Java怎么进行进程间的通信)
+            if (!requireLock) {
+                Thread.sleep(50);
+                return queryByIdMutex(id);
+            }
+            // 申请到了则进行数据库的查询和redis的更新
+            shop = getById(id);
+            if (shop == null) {
+                // 防止缓存穿透，将数据库值为null的key以空值value记录在redis中
+                stringRedisTemplate.opsForValue().set(key, "", RedisConstants.CACHE_NULL_TTL, TimeUnit.MINUTES);
+                return null;
+            }
+            stringRedisTemplate.opsForValue()
+                    .set(key, JSONUtil.toJsonStr(shop), RedisConstants.CACHE_SHOP_TTL, TimeUnit.MINUTES);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        } finally {
+            // 不论怎么报错都要解锁
+            releaseLock(key);
         }
-        stringRedisTemplate.opsForValue().set(key, JSONUtil.toJsonStr(shop), RedisConstants.CACHE_SHOP_TTL, TimeUnit.MINUTES);
-        return Result.ok(shop);
+        return shop;
     }
 
     @Override
@@ -62,14 +86,17 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
         return Result.ok();
     }
 
-    @Override
-    public boolean tryLock(String key) {
-        Boolean tryLockResult = stringRedisTemplate.opsForValue()
+    private boolean requireLock(String key) {
+        Boolean requireResult = stringRedisTemplate.opsForValue()
                 .setIfAbsent(RedisConstants.LOCK_SHOP_KEY + key, "1", RedisConstants.LOCK_SHOP_TTL, TimeUnit.SECONDS);
-        if (tryLockResult == null) {
+        if (requireResult == null) {
             return false;
         }
-        return tryLockResult;
+        return requireResult;
+    }
+
+    private void releaseLock(String key) {
+        stringRedisTemplate.delete(RedisConstants.LOCK_SHOP_KEY + key);
     }
 
 }
