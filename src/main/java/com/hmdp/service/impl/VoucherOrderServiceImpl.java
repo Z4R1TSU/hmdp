@@ -13,6 +13,8 @@ import com.hmdp.service.IVoucherOrderService;
 import com.hmdp.utils.RedisConstants;
 import com.hmdp.utils.RedisDistributeLock;
 import com.hmdp.utils.UserHolder;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
@@ -39,6 +41,9 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
     @Autowired
     private StringRedisTemplate stringRedisTemplate;
 
+    @Autowired
+    private RedissonClient redissonClient;
+
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Result seckillVoucher(Long voucherId) throws InterruptedException {
@@ -62,8 +67,10 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         // 一人最多只能抢两张秒杀优惠券，悲观锁只锁同一用户，其他用户不管(读用悲观锁)
 //        synchronized (UserHolder.getUser().getId().toString().intern()) {
         String userId = UserHolder.getUser().getId().toString();
-        RedisDistributeLock lock = new RedisDistributeLock(RedisConstants.SECKILL_STOCK_KEY + userId, stringRedisTemplate);
-        boolean isLock = lock.tryLock(60L, TimeUnit.SECONDS);
+//        RedisDistributeLock lock = new RedisDistributeLock(RedisConstants.SECKILL_STOCK_KEY + userId, stringRedisTemplate);
+//        boolean isLock = lock.tryLock(60L, TimeUnit.SECONDS);
+        RLock lock = redissonClient.getLock(RedisConstants.SECKILL_STOCK_KEY + userId);
+        boolean isLock = lock.tryLock();
         if (!isLock) {
             return Result.fail("你无法再抢购更多优惠券");
         }
