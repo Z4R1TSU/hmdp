@@ -20,7 +20,7 @@ public class MvcConfig implements WebMvcConfigurer {
         // 第一层拦截器，用户做的所有操作均将刷新token的存在时间
         registry.addInterceptor(new RefreshTokenInterceptor(stringRedisTemplate)).addPathPatterns("/**").order(0);
 
-        // 第二层拦截器，登录有关操作如果是已存在用户则放行，不然拦截
+        // 第二层拦截器，登录有关操作如果是已存在用户则放行，不然拦截。因为用户不登陆，无法访问某些页面
         registry.addInterceptor(new LoginInterceptor())
                 .excludePathPatterns(
                         "/user/code",
