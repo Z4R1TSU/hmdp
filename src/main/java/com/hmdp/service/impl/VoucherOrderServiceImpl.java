@@ -11,6 +11,8 @@ import com.hmdp.mapper.VoucherOrderMapper;
 import com.hmdp.service.ISeckillVoucherService;
 import com.hmdp.service.IVoucherOrderService;
 import com.hmdp.utils.RedisConstants;
+import com.hmdp.utils.SeckillOrderConsumer;
+import com.hmdp.utils.SeckillOrderProducer;
 import com.hmdp.utils.UserHolder;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
@@ -18,6 +20,7 @@ import org.springframework.aop.framework.AopContext;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
+import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -49,11 +52,14 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
     @Resource
     private RedissonClient redissonClient;
 
-    private IVoucherOrderService proxy;
+    @Resource
+    private SeckillOrderProducer seckillOrderProducer;
 
-    private static final ExecutorService SECKILL_EXECUTOR = Executors.newSingleThreadExecutor();
+//    private IVoucherOrderService proxy;
 
-    private BlockingQueue<VoucherOrder> orderTasks = new ArrayBlockingQueue<>(1024 * 1024);
+//    private static final ExecutorService SECKILL_EXECUTOR = Executors.newSingleThreadExecutor();
+
+//    private BlockingQueue<VoucherOrder> orderTasks = new ArrayBlockingQueue<>(1024 * 1024);
 
     private static final DefaultRedisScript<Long> SECKILL_SCRIPT;
     static {
@@ -62,40 +68,40 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         SECKILL_SCRIPT.setResultType(Long.class);
     }
 
-    @PostConstruct
-    private void init() {
-        SECKILL_EXECUTOR.submit(new VoucherOrderHandler());
-    }
+//    @PostConstruct
+//    private void init() {
+//        SECKILL_EXECUTOR.submit(new VoucherOrderHandler());
+//    }
+//
+//    private class VoucherOrderHandler implements Runnable {
+//
+//        @Override
+//        public void run() {
+//            while (true) {
+//                try {
+//                    VoucherOrder voucherOrder = orderTasks.take();
+//                    handleVoucherOrder(voucherOrder);
+//                } catch (InterruptedException e) {
+//                    log.error("订单异常", e);
+//                }
+//            }
+//        }
+//
+//    }
 
-    private class VoucherOrderHandler implements Runnable {
-
-        @Override
-        public void run() {
-            while (true) {
-                try {
-                    VoucherOrder voucherOrder = orderTasks.take();
-                    handleVoucherOrder(voucherOrder);
-                } catch (InterruptedException e) {
-                    log.error("订单异常", e);
-                }
-            }
-        }
-
-    }
-
-    private void handleVoucherOrder(VoucherOrder voucherOrder) {
-        RLock lock = redissonClient.getLock(RedisConstants.DISTRIBUTE_LOCK_KEY + voucherOrder.getId());
-        boolean isLock = lock.tryLock();
-        if (!isLock) {
-            log.error("下单失败");
-            return;
-        }
-        try {
-            proxy.createVoucherOrder(voucherOrder);
-        } finally {
-            lock.unlock();
-        }
-    }
+//    private void handleVoucherOrder(VoucherOrder voucherOrder) {
+//        RLock lock = redissonClient.getLock(RedisConstants.DISTRIBUTE_LOCK_KEY + voucherOrder.getId());
+//        boolean isLock = lock.tryLock();
+//        if (!isLock) {
+//            log.error("下单失败");
+//            return;
+//        }
+//        try {
+//            proxy.createVoucherOrder(voucherOrder);
+//        } finally {
+//            lock.unlock();
+//        }
+//    }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -123,9 +129,10 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         voucherOrder.setId(orderId);
         voucherOrder.setUserId(UserHolder.getUser().getId());
         voucherOrder.setVoucherId(voucherId);
-        orderTasks.add(voucherOrder);
-        IVoucherOrderService proxy = (IVoucherOrderService) AopContext.currentProxy();
-        this.proxy = proxy;
+        seckillOrderProducer.sendOrder(voucherOrder);
+//        orderTasks.add(voucherOrder);
+//        IVoucherOrderService proxy = (IVoucherOrderService) AopContext.currentProxy();
+//        this.proxy = proxy;
         return Result.ok();
     }
 
@@ -134,7 +141,7 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
     public void createVoucherOrder(VoucherOrder voucherOrder) {
         Long userId = voucherOrder.getUserId();
         Long voucherId = voucherOrder.getVoucherId();
-        // 1、判断当前用户是否是第一单
+        // 1、判断当前用户是否超订了
         long countLong = this.count(new LambdaQueryWrapper<VoucherOrder>()
                 .eq(VoucherOrder::getUserId, userId));
         int count = (int) countLong;
@@ -143,11 +150,11 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
             log.error("当前用户不是第一单");
             return;
         }
-        // 2、用户是第一单，可以下单，秒杀券库存数量减一
+        // 2、秒杀券库存数量减一
         boolean flag = seckillVoucherService.update(new LambdaUpdateWrapper<SeckillVoucher>()
                 .eq(SeckillVoucher::getVoucherId, voucherId)
                 .gt(SeckillVoucher::getStock, 0)
-                .setSql("stock = stock -1"));
+                .setDecrBy(SeckillVoucher::getStock, 1));
         if (!flag) {
             throw new RuntimeException("秒杀券扣减失败");
         }
