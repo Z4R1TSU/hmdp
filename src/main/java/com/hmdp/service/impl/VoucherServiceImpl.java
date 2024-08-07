@@ -43,6 +43,12 @@ public class VoucherServiceImpl extends ServiceImpl<VoucherMapper, Voucher> impl
     }
 
     @Override
+    public void delSeckillVoucher(String id) {
+        this.removeById(id);
+        stringRedisTemplate.delete(RedisConstants.SECKILL_STOCK_KEY + id);
+    }
+
+    @Override
     @Transactional
     public void addSeckillVoucher(Voucher voucher) {
         // 保存优惠券

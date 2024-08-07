@@ -15,6 +15,8 @@ public class RedisDistributeLock implements Lock {
 
     private StringRedisTemplate stringRedisTemplate;
 
+    public RedisDistributeLock() {}
+
     public RedisDistributeLock(String lockName, StringRedisTemplate stringRedisTemplate) {
         this.lockName = lockName;
         this.stringRedisTemplate = stringRedisTemplate;

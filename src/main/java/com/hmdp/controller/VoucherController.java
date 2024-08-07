@@ -46,6 +46,15 @@ public class VoucherController {
     }
 
     /**
+     *
+     */
+    @PostMapping("delseckill/{id}")
+    public Result delSeckillVoucher(@PathVariable("id") String id) {
+        voucherService.delSeckillVoucher(id);
+        return Result.ok();
+    }
+
+    /**
      * 查询店铺的优惠券列表
      * @param shopId 店铺id
      * @return 优惠券列表

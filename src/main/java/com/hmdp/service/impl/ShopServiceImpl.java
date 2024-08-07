@@ -47,7 +47,7 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
     public Result queryById(Long id) throws InterruptedException {
 //        Shop shop = queryByIdMutex(id);
 //        Shop shop = cacheUtils.queryByIdMutex(id, Shop.class, this::getById);
-        Shop shop = cacheUtils.queryByIdWithLogicalExpiration(id, Shop.class, this::getById);
+        Shop shop = cacheUtils.queryByIdMutex(id, Shop.class, this::getById);
         if (shop == null) {
             return Result.fail("找不到指定店铺");
         }
