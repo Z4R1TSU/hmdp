@@ -7,11 +7,15 @@ import com.hmdp.entity.Voucher;
 import com.hmdp.mapper.VoucherMapper;
 import com.hmdp.service.ISeckillVoucherService;
 import com.hmdp.service.IVoucherService;
+import com.hmdp.utils.RedisConstants;
+import org.springframework.boot.autoconfigure.cache.CacheProperties;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
 import java.util.List;
+import java.util.Map;
 
 /**
  * <p>
@@ -26,6 +30,9 @@ public class VoucherServiceImpl extends ServiceImpl<VoucherMapper, Voucher> impl
 
     @Resource
     private ISeckillVoucherService seckillVoucherService;
+
+    @Resource
+    private StringRedisTemplate stringRedisTemplate;
 
     @Override
     public Result queryVoucherOfShop(Long shopId) {
@@ -47,5 +54,15 @@ public class VoucherServiceImpl extends ServiceImpl<VoucherMapper, Voucher> impl
         seckillVoucher.setBeginTime(voucher.getBeginTime());
         seckillVoucher.setEndTime(voucher.getEndTime());
         seckillVoucherService.save(seckillVoucher);
+        // 保存秒杀券信息到redis缓存，以提高效率
+        stringRedisTemplate.opsForValue()
+                .set(RedisConstants.SECKILL_STOCK_KEY + String.valueOf(voucher.getId()),String.valueOf(voucher.getStock()));
+//        Map<String, String> seckillUserRecord = stringRedisTemplate.opsForHash().entries(RedisConstants.SECKILL_STOCK_KEY);
+//        // 如果该用户已经抢购两次，则显示失败
+//        String voucherId = String.valueOf(voucher.getId());
+//        if (seckillUserRecord.containsKey(voucherId) && seckillUserRecord.get(voucherId).equals("2")) {
+//            return;
+//        }
+//        stringRedisTemplate.opsForHash().increment(RedisConstants.SECKILL_STOCK_KEY, voucherId, 1);
     }
 }

@@ -3233,3 +3233,4 @@
 2024/08/06 10:20:03 [error] 23176#23032: *7 CreateFile() "E:\code\hmdp\nginx-1.18.0/html/hmdp/js/axios.min.map" failed (2: The system cannot find the file specified), client: 127.0.0.1, server: localhost, request: "GET /js/axios.min.map HTTP/1.1", host: "localhost:8080"
 2024/08/06 12:04:36 [notice] 19168#21840: signal process started
 2024/08/06 12:07:34 [notice] 23608#17296: signal process started
+2024/08/06 17:48:14 [error] 11884#3292: *41 connect() failed (10061: No connection could be made because the target machine actively refused it) while connecting to upstream, client: 127.0.0.1, server: localhost, request: "GET /api/voucher/list/1 HTTP/1.1", upstream: "http://127.0.0.1:8082/voucher/list/1", host: "localhost:8080"
