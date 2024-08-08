@@ -49,8 +49,12 @@ public class BlogController {
 //        blogService.update()
 //                .setSql("liked = liked + 1").eq("id", id).update();
 //        return Result.ok();
+        return blogService.likeBlog(id);
+    }
+
+    @GetMapping("/likes/{id}")
+    public Result likeBlogWithScore(@PathVariable("id") Long id) {
         return blogService.likeBlogWithScore(id);
-//        return blogService.likeBlog(id);
     }
 
     @GetMapping("/of/me")
