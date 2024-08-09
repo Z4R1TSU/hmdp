@@ -83,6 +83,12 @@ public class BlogController {
         return Result.ok(records);
     }
 
+    @GetMapping("/of/follow")
+    public Result queryFollowed(@RequestParam("lastId") Long lastId,
+                                @RequestParam(value = "offset", defaultValue = "0") Integer offset) {
+        return blogService.queryFollowed(lastId, offset);
+    }
+
     @GetMapping("/hot")
     public Result queryHotBlog(@RequestParam(value = "current", defaultValue = "1") Integer current) {
         return blogService.queryHotBlog(current);

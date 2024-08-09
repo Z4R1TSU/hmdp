@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.hmdp.dto.BlogResult;
 import com.hmdp.dto.Result;
 import com.hmdp.dto.UserDTO;
 import com.hmdp.entity.Blog;
@@ -18,12 +19,13 @@ import com.hmdp.utils.RedisConstants;
 import com.hmdp.utils.SystemConstants;
 import com.hmdp.utils.UserHolder;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
-import java.util.Collections;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 /**
@@ -160,6 +162,45 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
                     stringRedisTemplate.opsForZSet().add(key, blog.getId().toString(), System.currentTimeMillis());
                 });
         return Result.ok(blog.getId());
+    }
+
+    @Override
+    public Result queryFollowed(Long lastId, Integer offset) {
+        // 查询本人信息及id
+        Long userId = UserHolder.getUser().getId();
+        String key = RedisConstants.FEED_KEY + userId;
+        // 在redis中查询是否有自己关注的人发布的博客
+        Set<ZSetOperations.TypedTuple<String>> typedTuples = stringRedisTemplate.opsForZSet()
+                .reverseRangeByScoreWithScores(key, 0, lastId, offset, 2);
+        if (typedTuples == null || typedTuples.isEmpty()) {
+            return Result.ok(Collections.emptyList());
+        }
+        // 解析博客信息
+        List<Long> ids = typedTuples.stream()
+                .map(ZSetOperations.TypedTuple::getValue).filter(Objects::nonNull)
+                .map(Long::valueOf)
+                .collect(Collectors.toList());
+        AtomicLong minTime = new AtomicLong(0);
+        AtomicInteger ofset = new AtomicInteger(1);
+        typedTuples.stream()
+                .forEach(tuple -> {
+                    long currentTime = tuple.getScore().longValue();
+                    if (currentTime == minTime.get()) {
+                        ofset.incrementAndGet();
+                    } else {
+                        minTime.set(currentTime);
+                        ofset.set(1);
+                    }
+                });
+        // 从数据库中找出，所有符合信息的博客创造者
+        List<Blog> blogs = list(new LambdaQueryWrapper<Blog>().in(Blog::getId, ids));
+        // 封装成BlogResult这个DTO
+        BlogResult blogResult = new BlogResult();
+        blogResult.setList(blogs);
+        blogResult.setMinTime(minTime.get());
+        blogResult.setOffset(ofset.get());
+        // 返回所有本人关注的发布的博客信息
+        return Result.ok(blogResult);
     }
 
     private void fillBlogWithUserInfo(Blog blog) {
