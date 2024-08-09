@@ -69,6 +69,19 @@ public class BlogController {
         return Result.ok(records);
     }
 
+    @GetMapping("/of/user")
+    public Result queryOtherBlog(@RequestParam("id") Long id,
+                                 @RequestParam(value = "current", defaultValue =  "1") Integer current) {
+        // 获取其他用户
+        User user = userService.getById(id);
+        // 根据用户查询
+        Page<Blog> page = blogService.query()
+                .eq("user_id", user.getId()).page(new Page<>(current, SystemConstants.MAX_PAGE_SIZE));
+        // 获取当前页数据
+        List<Blog> records = page.getRecords();
+        return Result.ok(records);
+    }
+
     @GetMapping("/hot")
     public Result queryHotBlog(@RequestParam(value = "current", defaultValue = "1") Integer current) {
         return blogService.queryHotBlog(current);

@@ -104,6 +104,13 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
     }
 
     @Override
+    public Result showUser(Long id) {
+        User user = getById(id);
+        UserDTO userDTO = BeanUtil.copyProperties(user, UserDTO.class);
+        return Result.ok(userDTO);
+    }
+
+    @Override
     public User createUserByPhone(String phone) {
         User user = new User();
         user.setPhone(phone);

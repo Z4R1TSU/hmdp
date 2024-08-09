@@ -26,4 +26,6 @@ public interface IUserService extends IService<User> {
 
     User createUserByPhone(String phone);
 
+    Result showUser(Long id);
+
 }

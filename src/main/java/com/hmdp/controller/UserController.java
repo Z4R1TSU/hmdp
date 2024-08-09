@@ -64,6 +64,11 @@ public class UserController {
         return userService.logout(request);
     }
 
+    @GetMapping("/{id}")
+    public Result showUser(@PathVariable("id") Long id) {
+        return userService.showUser(id);
+    }
+
     @GetMapping("/me")
     public Result me(){
         // 获取当前登录的用户并返回
