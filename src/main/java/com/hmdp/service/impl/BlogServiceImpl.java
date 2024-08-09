@@ -1,20 +1,22 @@
 package com.hmdp.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.hmdp.dto.Result;
 import com.hmdp.dto.UserDTO;
 import com.hmdp.entity.Blog;
+import com.hmdp.entity.Follow;
 import com.hmdp.entity.User;
 import com.hmdp.mapper.BlogMapper;
 import com.hmdp.service.IBlogService;
+import com.hmdp.service.IFollowService;
 import com.hmdp.service.IUserService;
 import com.hmdp.utils.RedisConstants;
 import com.hmdp.utils.SystemConstants;
 import com.hmdp.utils.UserHolder;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -37,6 +39,9 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
 
     @Resource
     private IUserService userService;
+
+    @Resource
+    private IFollowService followService;
 
     @Resource
     private StringRedisTemplate stringRedisTemplate;
@@ -136,6 +141,25 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
                 map(user -> BeanUtil.copyProperties(user, UserDTO.class))
                 .collect(Collectors.toList());
         return Result.ok(userDTOList);
+    }
+
+    @Override
+    public Result saveBlog(Blog blog) {
+        Long userId = UserHolder.getUser().getId();
+        blog.setUserId(userId);
+        boolean isSaveSucceed = save(blog);
+        if (!isSaveSucceed) {
+            return Result.fail("笔记保存失败");
+        }
+        List<Follow> followers = followService.list(
+                new LambdaQueryWrapper<Follow>().eq(Follow::getFollowUserId, userId));
+        followers.stream()
+                .map(Follow::getUserId)
+                .forEach(id -> {
+                    String key = RedisConstants.FEED_KEY + id;
+                    stringRedisTemplate.opsForZSet().add(key, blog.getId().toString(), System.currentTimeMillis());
+                });
+        return Result.ok(blog.getId());
     }
 
     private void fillBlogWithUserInfo(Blog blog) {
